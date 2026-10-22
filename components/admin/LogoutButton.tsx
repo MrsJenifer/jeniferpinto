@@ -1,0 +1,2 @@
+"use client";import { useRouter } from "next/navigation";import { LogOut } from "lucide-react";import { createClient } from "@/lib/supabase/client";
+export function LogoutButton(){const router=useRouter();async function logout(){try{const supabase=createClient();await supabase.auth.signOut();}finally{router.replace("/admin/login");router.refresh();}}return <button className="btn btn-outline" onClick={logout} style={{padding:"7px 10px",fontSize:11}}><LogOut size={13}/> Sign out</button>}

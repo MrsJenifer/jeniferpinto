@@ -1,0 +1,3 @@
+import { requireAdmin } from "@/lib/admin-auth";import { AdminShell } from "@/components/admin/AdminShell";import { MediaManager } from "@/components/admin/MediaManager";import { GoogleDriveManager } from "@/components/admin/GoogleDriveManager";
+export const dynamic="force-dynamic";
+export default async function MediaPage(){const auth=await requireAdmin();return <AdminShell email={auth.user.email||"Administrator"} role={auth.role}><h1>Media library</h1><p className="subtitle">Upload and manage public-ready images and documents. Private materials should remain in private storage.</p><MediaManager/><GoogleDriveManager/></AdminShell>}
