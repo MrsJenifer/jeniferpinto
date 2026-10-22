@@ -1,4 +1,4 @@
-# Jenifer Pinto — MBA Finance Portfolio
+﻿# Jenifer Pinto â€” MBA Finance Portfolio
 
 A Next.js application starter for a recruiter-focused MBA Finance portfolio with database-backed content, admin access, a reusable media library, project case studies, and a Supabase/PostgreSQL foundation.
 
@@ -14,7 +14,7 @@ A Next.js application starter for a recruiter-focused MBA Finance portfolio with
 
 ## Run locally
 
-For a step-by-step Windows setup, see [`START_HERE.md`](./START_HERE.md).
+For a step-by-step Windows setup, see [`START_HERE.md`](./docs/setup/START_HERE.md).
 
 Prerequisites: Node.js compatible with the selected Next.js release and npm.
 
@@ -115,3 +115,4 @@ npm run start
 ## Dependency audit note
 
 Do not run `npm audit fix --force` just to clear an ESLint/Next.js development-tooling finding; npm may propose a breaking downgrade of `eslint-config-next`. Review `npm audit` and `npm audit --omit=dev` separately. The `braces` high-severity advisory currently has no published patched release, according to the upstream package/advisory information checked on 2026-10-22. Track the advisory and re-evaluate after an upstream fix is released. This note is not a claim that a security review is complete.
+
