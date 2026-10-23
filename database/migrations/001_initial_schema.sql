@@ -36,7 +36,7 @@ create table if not exists public.media_assets (
   storage_path text not null unique,
   public_url text,
   mime_type text not null,
-  size_bytes bigint not null check (size_bytes > 0 and size_bytes <= 10485760),
+  size_bytes bigint not null check (size_bytes > 0 and size_bytes <= 52428800),
   alt_text text check (alt_text is null or length(alt_text) <= 250),
   created_at timestamptz not null default now()
 );
@@ -138,7 +138,7 @@ create policy "Admins can write audit events" on public.audit_events for insert 
 
 -- Storage bucket: assets are public only because portfolio assets are published assets. Never place private files here.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
-values ('portfolio-assets','portfolio-assets',true,10485760,array['image/jpeg','image/png','image/webp','image/gif','application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.openxmlformats-officedocument.presentationml.presentation'])
+values ('portfolio-assets','portfolio-assets',true,52428800,array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.openxmlformats-officedocument.presentationml.presentation'])
 on conflict (id) do update set file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 drop policy if exists "Active admins upload portfolio assets" on storage.objects;
 create policy "Active admins upload portfolio assets" on storage.objects for insert to authenticated with check (bucket_id='portfolio-assets' and public.is_active_admin() and (storage.foldername(name))[1]=auth.uid()::text);

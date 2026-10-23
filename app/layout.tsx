@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 import { getPublicContent } from "@/lib/public-content";
 
@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const name = str(profile.name, "Jenifer Pinto");
   const title = str(settings.site_title, `${name} | MBA Finance Portfolio`);
   const description = str(settings.site_description, `A professional portfolio of finance projects, financial analysis, education, and skills by ${name}.`);
-  return { metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"), title: { default: title, template: `%s | ${name}` }, description, openGraph: { title, description, type: "website" }, robots: { index: true, follow: true } };
+  return { metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"), title: { default: name, template: name }, description, openGraph: { title, description, type: "website" }, robots: { index: true, follow: true } };
 }
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en"><body>{children}</body></html>;

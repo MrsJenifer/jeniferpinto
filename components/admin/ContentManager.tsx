@@ -1,28 +1,46 @@
 "use client";
 import { adminFetch } from "@/lib/admin-fetch";import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";import { useSearchParams } from "next/navigation";import { contentTypes } from "@/lib/validation";import type { ContentItem, ContentType } from "@/lib/types";import { VersionHistory } from "./VersionHistory";import { Save, Plus, Trash2, Pencil, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";import { useSearchParams } from "next/navigation";import { contentTypes } from "@/lib/validation";import type { ContentItem, ContentType } from "@/lib/types";import { VersionHistory } from "./VersionHistory";import { BulkJsonImporter } from "./BulkJsonImporter";import { Save, Plus, Trash2, Pencil, RefreshCw, Eye, EyeOff } from "lucide-react";
 const labels:Record<ContentType,string>={profile:"Profile",project:"Finance project",skill:"Skill",experience:"Experience",education:"Education",certification:"Certification",achievement:"Achievement",article:"Article",testimonial:"Testimonial",site_settings:"Site settings"};
 function slugify(s:string){return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,120)}
 function val(d:Record<string,unknown>,k:string){const v=d[k];return typeof v==="string"?v:""}
 type StructuredField = {
   key: string;
   label: string;
-  kind?: "text" | "url" | "textarea";
+  kind?: "text" | "url" | "textarea" | "checkbox";
   placeholder?: string;
   wide?: boolean; media?: "image" | "video" | "document"; };
 
 const structuredFields: Partial<Record<ContentType, StructuredField[]>> = {
+  profile: [
+    { key: "about_eyebrow", label: "About page eyebrow", placeholder: "The person behind the portfolio" },
+    { key: "about_heading", label: "About page main heading", placeholder: "Finance, analysis and business insight" },
+    { key: "about_intro_secondary", label: "About page supporting paragraph", kind: "textarea", wide: true, placeholder: "Additional background or professional motivation" },
+    { key: "professional_focus_eyebrow", label: "Professional focus label", placeholder: "Professional focus" },
+    { key: "professional_focus_description", label: "Professional focus description", kind: "textarea", wide: true, placeholder: "A concise, factual description of professional direction" },
+    { key: "approach_label", label: "Highlight 1 label", placeholder: "Approach" },
+    { key: "approach_value", label: "Highlight 1 value", placeholder: "Evidence-led analysis" },
+    { key: "output_label", label: "Highlight 2 label", placeholder: "Output" },
+    { key: "output_value", label: "Highlight 2 value", placeholder: "Clear communication" },
+    { key: "education_section_eyebrow", label: "About education eyebrow", placeholder: "Education" },
+    { key: "education_section_heading", label: "About education heading", placeholder: "Academic background" },
+    { key: "skills_section_eyebrow", label: "About skills eyebrow", placeholder: "Competencies" },
+    { key: "skills_section_heading", label: "About skills heading", placeholder: "Finance skills in practice" },
+    { key: "about_skills_intro", label: "About skills supporting text", kind: "textarea", wide: true, placeholder: "Optional context for the skills shown" }
+  ],
   experience: [
     { key: "organisation", label: "Company / organisation", placeholder: "Company or employer name" },
     { key: "type", label: "Employment type", placeholder: "Full-time, internship, contract, freelance" },
     { key: "location", label: "Location", placeholder: "City, country or Remote" },
     { key: "start_date", label: "Start date", placeholder: "e.g. Jan 2025 or 2025-01" },
-    { key: "end_date", label: "End date", placeholder: "e.g. Oct 2025, or Present for a current role" }
+    { key: "end_date", label: "End date", placeholder: "Leave blank for a current role" },
+    { key: "current_role", label: "Currently in this role", kind: "checkbox" }
   ],
   education: [
     { key: "institution", label: "Institution / university", placeholder: "School, college or university" },
     { key: "start_date", label: "Start date", placeholder: "e.g. 2022 or Aug 2022" },
-    { key: "end_date", label: "Graduation / end date", placeholder: "e.g. 2026 or May 2026" },
+    { key: "end_date", label: "Graduation / end date", placeholder: "Leave blank if still studying" },
+    { key: "currently_studying", label: "Currently studying", kind: "checkbox" },
     { key: "grade", label: "Grade / GPA (optional)", placeholder: "Optional; enter only if appropriate" }
   ],
   skill: [
@@ -63,7 +81,8 @@ const mediaFields: Partial<Record<ContentType, StructuredField[]>> = {
   education: [
     { key: "institution_logo_url", label: "Institution logo", kind: "url", media: "image" },
     { key: "image_url", label: "Education image", kind: "url", media: "image" },
-    { key: "video_url", label: "Education video", kind: "url", media: "video" }
+    { key: "video_url", label: "Education video", kind: "url", media: "video" },
+    { key: "document_url", label: "Transcript / supporting PDF", kind: "url", media: "document" }
   ],
   skill: [
     { key: "image_url", label: "Skill / evidence image", kind: "url", media: "image" },
@@ -71,11 +90,13 @@ const mediaFields: Partial<Record<ContentType, StructuredField[]>> = {
   ],
   certification: [
     { key: "certificate_image_url", label: "Certificate image", kind: "url", media: "image" },
+    { key: "certificate_file_url", label: "Certificate PDF", kind: "url", media: "document" },
     { key: "video_url", label: "Certificate / learning video", kind: "url", media: "video" }
   ],
   achievement: [
     { key: "image_url", label: "Achievement image", kind: "url", media: "image" },
-    { key: "video_url", label: "Achievement video", kind: "url", media: "video" }
+    { key: "video_url", label: "Achievement video", kind: "url", media: "video" },
+    { key: "document_url", label: "Supporting PDF / document", kind: "url", media: "document" }
   ],
   article: [
     { key: "image_url", label: "Article cover image", kind: "url", media: "image" },
@@ -118,6 +139,30 @@ const loadMediaAssets = useCallback(async () => {
   }
 }, []);
 
+async function uploadMediaForField(field: StructuredField, file: File) {
+  setBusy(true);
+  setNotice("");
+  setBad(false);
+  try {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("alt_text", `${title || field.label} media`.slice(0, 250));
+    const response = await adminFetch("/api/admin/media", { method: "POST", body: form }, 120000);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Upload failed.");
+    const url = body.item?.public_url;
+    if (typeof url !== "string" || !url) throw new Error("Upload succeeded but no public media URL was returned.");
+    setFields((current) => ({ ...current, [field.key]: url }));
+    await loadMediaAssets();
+    setNotice(`${field.label} uploaded. Save the content record to publish this media.`);
+  } catch (error) {
+    setBad(true);
+    setNotice(error instanceof Error ? error.message : "Media upload failed.");
+  } finally {
+    setBusy(false);
+  }
+}
+
 const load = useCallback(async (t: ContentType = type) => {
   try {
     const res = await adminFetch(`/api/admin/content?type=${encodeURIComponent(t)}`, { cache: "no-store" });
@@ -153,7 +198,7 @@ function edit(i: ContentItem) {
   const nextFields: Record<string, string> = {};
   for (const field of typeFields) {
     const value = d[field.key];
-    nextFields[field.key] = typeof value === "string" ? value : "";
+    nextFields[field.key] = field.kind === "checkbox" ? String(value === true) : typeof value === "string" ? value : "";
   }
   // Older experience records may use company instead of organisation.
   if (i.content_type === "experience" && !nextFields.organisation) {
@@ -214,8 +259,14 @@ function buildData() {
   // Structured fields are saved using the keys consumed by the public pages.
   // Empty structured fields are omitted, allowing an editor to clear old values.
   for (const field of fieldsForType(type)) {
+    if (field.kind === "checkbox") {
+      if (fields[field.key] === "true") base[field.key] = true;
+      else delete base[field.key];
+      continue;
+    }
     const value = (fields[field.key] || "").trim();
     if (value) base[field.key] = value;
+    else delete base[field.key];
   }
 
   if (type === "site_settings") {
@@ -278,7 +329,7 @@ async function togglePublish(i: ContentItem) {
     setBusy(false);
   }
 }
-const filtered=useMemo(()=>items.filter(i=>`${i.slug} ${JSON.stringify(i.data)}`.toLowerCase().includes(query.toLowerCase())),[items,query]);return <><h1>Content management</h1><p className="subtitle">Edit, publish, and maintain the content shown on the public website.</p>{notice&&<div className={`admin-alert${bad?" error":""}`} role="status">{notice}</div>}<section className="admin-panel"><div className="admin-panel-head"><h2>Content collection</h2><button className="btn btn-outline" onClick={()=>{setLoading(true);setNotice("");setBad(false);void load();}}><RefreshCw size={14}/> Refresh</button></div><div className="admin-toolbar"><select value={type} onChange={e=>{clear();setLoading(true);setType(e.target.value as ContentType)}} aria-label="Content type">{contentTypes.map(t=><option key={t} value={t}>{labels[t]}</option>)}</select><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search content…" aria-label="Search content"/><button className="btn btn-primary" onClick={clear}><Plus size={14}/> New {labels[type].toLowerCase()}</button></div><div className="admin-table-wrap" style={{marginTop:15}}>{loading?<p className="small-muted">Loading content…</p>:filtered.length?<table className="admin-table"><thead><tr><th>Content</th><th>Slug</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map(i=><tr key={i.id}><td><strong>{val(i.data,"title")||val(i.data,"name")||val(i.data,"degree")||val(i.data,"headline")||i.slug}</strong><small>{val(i.data,"summary")||val(i.data,"description")||labels[i.content_type]}</small></td><td>{i.slug}</td><td><span className={`pill${i.is_published?"":" draft"}`}>{i.is_published?"Published":"Draft"}</span></td><td><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>edit(i)} aria-label="Edit"><Pencil size={13}/></button><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>void togglePublish(i)} disabled={busy} aria-label={i.is_published?"Unpublish":"Publish"} title={i.is_published?"Move to draft":"Publish publicly"}>{i.is_published?<><EyeOff size={13}/> Unpublish</>:<><Eye size={13}/> Publish</>}</button><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>remove(i)} aria-label="Delete"><Trash2 size={13}/></button></div></td></tr>)}</tbody></table>:<div className="empty-state">No records found. Create a new item or adjust the search.</div>}</div></section><VersionHistory key={selected?.id ?? "new"} itemId={selected?.id??null} onRestored={(item)=>{edit(item);setNotice("Previous version restored.");setBad(false);void load(type);}}/><section className="admin-panel"><div className="admin-panel-head"><h2>{selected?"Edit content":"Create content"}</h2><button className="btn btn-outline" onClick={()=>setJsonMode(v=>!v)}>{jsonMode?"Structured editor":"Additional JSON fields"}</button></div><form onSubmit={save}><div className="form-grid"><div className="field"><label htmlFor="title">{type==="profile"||type==="skill"||type==="certification"?"Name":type==="education"?"Degree / qualification":type==="experience"?"Job title":"Title"}</label><input id="title" value={title} onChange={e=>{setTitle(e.target.value);if(!selected)setSlug(slugify(e.target.value));}} placeholder={type==="profile"?"Jenifer Pinto":"Content title"} required/></div><div className="field"><label htmlFor="slug">URL slug</label><input id="slug" value={slug} onChange={e=>setSlug(slugify(e.target.value))} required maxLength={120}/></div><div className="field"><label htmlFor="sort-order">Display order</label><input id="sort-order" type="number" min="0" max="100000" value={sortOrder} onChange={e=>setSortOrder(Math.max(0,Math.min(100000,Number(e.target.value)||0)))}/><span className="small-muted">Lower numbers appear first within the section.</span></div><div className="field field-full"><label htmlFor="summary">{type==="profile"?"Professional introduction":type==="project"?"Executive summary":"Summary / short description"}</label><textarea id="summary" value={summary} onChange={e=>setSummary(e.target.value)} rows={3}/></div><div className="field field-full"><label htmlFor="description">{type==="experience"?"Responsibilities and achievements":type==="education"?"Additional education details":type==="project"?"Project overview / description":type==="certification"?"Certification notes":"Long description / methodology"}</label><textarea id="description" value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></div>{(type==="project"||type==="education"||type==="skill"||type==="achievement"||type==="article"||type==="testimonial")&&<div className="field"><label htmlFor="category">{type==="education"?"Specialisation / field of study":type==="project"?"Project category":type==="skill"?"Skill category":"Category / specialisation"}</label><input id="category" value={category} onChange={e=>setCategory(e.target.value)}/></div>}{type==="project"&&<div className="field"><label htmlFor="tools">Tools (comma-separated)</label><input id="tools" value={tools} onChange={e=>setTools(e.target.value)} placeholder="Excel, Power BI, Financial Modelling"/></div>}{fieldsForType(type).map((field) => (
+const filtered=useMemo(()=>items.filter(i=>`${i.slug} ${JSON.stringify(i.data)}`.toLowerCase().includes(query.toLowerCase())),[items,query]);return <><h1>Content management</h1><p className="subtitle">Edit, publish, and maintain the content shown on the public website.</p>{notice&&<div className={`admin-alert${bad?" error":""}`} role="status">{notice}</div>}<section className="admin-panel"><div className="admin-panel-head"><h2>Content collection</h2><button className="btn btn-outline" onClick={()=>{setLoading(true);setNotice("");setBad(false);void load();}}><RefreshCw size={14}/> Refresh</button></div><div className="admin-toolbar"><select value={type} onChange={e=>{clear();setLoading(true);setType(e.target.value as ContentType)}} aria-label="Content type">{contentTypes.map(t=><option key={t} value={t}>{labels[t]}</option>)}</select><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search content…" aria-label="Search content"/><button className="btn btn-primary" onClick={clear}><Plus size={14}/> New {labels[type].toLowerCase()}</button></div><div className="admin-table-wrap" style={{marginTop:15}}>{loading?<p className="small-muted">Loading content…</p>:filtered.length?<table className="admin-table"><thead><tr><th>Content</th><th>Slug</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map(i=><tr key={i.id}><td><strong>{val(i.data,"title")||val(i.data,"name")||val(i.data,"degree")||val(i.data,"headline")||i.slug}</strong><small>{val(i.data,"summary")||val(i.data,"description")||labels[i.content_type]}</small></td><td>{i.slug}</td><td><span className={`pill${i.is_published?"":" draft"}`}>{i.is_published?"Published":"Draft"}</span></td><td><div style={{display:"flex",gap:7,flexWrap:"wrap"}}><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>edit(i)} aria-label="Edit"><Pencil size={13}/></button><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>void togglePublish(i)} disabled={busy} aria-label={i.is_published?"Unpublish":"Publish"} title={i.is_published?"Move to draft":"Publish publicly"}>{i.is_published?<><EyeOff size={13}/> Unpublish</>:<><Eye size={13}/> Publish</>}</button><button className="btn btn-outline" style={{padding:"6px 8px"}} onClick={()=>remove(i)} aria-label="Delete"><Trash2 size={13}/></button></div></td></tr>)}</tbody></table>:<div className="empty-state">No records found. Create a new item or adjust the search.</div>}</div></section>{type !== "profile" && type !== "site_settings" && <BulkJsonImporter key={type} contentType={type} existingSlugs={items.map(item => item.slug)} nextSortOrder={items.length} onImported={() => { setLoading(true); void load(type); }} />}<VersionHistory key={selected?.id ?? "new"} itemId={selected?.id??null} onRestored={(item)=>{edit(item);setNotice("Previous version restored.");setBad(false);void load(type);}}/><section className="admin-panel"><div className="admin-panel-head"><h2>{selected?"Edit content":"Create content"}</h2><button className="btn btn-outline" onClick={()=>setJsonMode(v=>!v)}>{jsonMode?"Simple form":"Advanced fields (optional)"}</button></div><form onSubmit={save}><div className="form-grid"><div className="field"><label htmlFor="title">{type==="profile"||type==="skill"||type==="certification"?"Name":type==="education"?"Degree / qualification":type==="experience"?"Job title":"Title"}</label><input id="title" value={title} onChange={e=>{setTitle(e.target.value);if(!selected)setSlug(slugify(e.target.value));}} placeholder={type==="profile"?"Jenifer Pinto":"Content title"} required/></div><div className="field field-full"><label htmlFor="summary">{type==="profile"?"Professional introduction":type==="project"?"Executive summary":"Summary / short description"}</label><textarea id="summary" value={summary} onChange={e=>setSummary(e.target.value)} rows={3}/></div><div className="field field-full"><label htmlFor="description">{type==="experience"?"Responsibilities and achievements":type==="education"?"Additional education details":type==="project"?"Project overview / description":type==="certification"?"Certification notes":"Long description / methodology"}</label><textarea id="description" value={description} onChange={e=>setDescription(e.target.value)} rows={4}/></div>{(type==="project"||type==="education"||type==="skill"||type==="achievement"||type==="article"||type==="testimonial")&&<div className="field"><label htmlFor="category">{type==="education"?"Specialisation / field of study":type==="project"?"Project category":type==="skill"?"Skill category":"Category / specialisation"}</label><input id="category" value={category} onChange={e=>setCategory(e.target.value)}/></div>}{type==="project"&&<div className="field"><label htmlFor="tools">Tools (comma-separated)</label><input id="tools" value={tools} onChange={e=>setTools(e.target.value)} placeholder="Excel, Power BI, Financial Modelling"/></div>}{fieldsForType(type).map((field) => (
   <div className={`field${field.wide || field.kind === "textarea" ? " field-full" : ""}`} key={field.key}>
     <label htmlFor={`structured-${field.key}`}>{field.label}</label>
     {field.kind === "textarea" ? (
@@ -288,6 +339,11 @@ const filtered=useMemo(()=>items.filter(i=>`${i.slug} ${JSON.stringify(i.data)}`
         onChange={(event) => setFields((current) => ({ ...current, [field.key]: event.target.value }))}
         rows={3}
       />
+    ) : field.kind === "checkbox" ? (
+      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={fields[field.key] === "true"} onChange={(event) => setFields((current) => ({ ...current, [field.key]: String(event.target.checked) }))} />
+        <span>{field.label}</span>
+      </label>
     ) : (
       <><input
         id={`structured-${field.key}`}
@@ -322,7 +378,9 @@ const filtered=useMemo(()=>items.filter(i=>`${i.slug} ${JSON.stringify(i.data)}`
           {fields[field.key] && field.media === "image" && <Image unoptimized src={fields[field.key] || ""} alt="Selected media preview" width={640} height={360} style={{ width: "100%", maxWidth: 320, maxHeight: 180, objectFit: "contain", borderRadius: 8 }} />}
           {fields[field.key] && field.media === "video" && <video controls preload="metadata" src={fields[field.key] || ""} style={{ width: "100%", maxWidth: 460, maxHeight: 260, background: "#111", borderRadius: 8 }} />}
           {fields[field.key] && field.media === "document" && <a className="text-link" href={fields[field.key] || "#"} target="_blank" rel="noopener noreferrer">Open selected document</a>}
-          <span className="small-muted">Uploaded files and imported Google Drive assets appear here. You can also paste a public URL in the field above.</span>
+          <label htmlFor={`upload-${field.key}`} className="small-muted">Or upload {field.media === "image" ? "an image" : field.media === "video" ? "a video" : "a document"}</label>
+          <input id={`upload-${field.key}`} type="file" disabled={busy} accept={field.media === "image" ? "image/jpeg,image/png,image/webp,image/gif" : field.media === "video" ? "video/mp4,video/webm" : "application/pdf,.docx,.xlsx,.pptx"} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ""; if (file) void uploadMediaForField(field, file); }} />
+          <span className="small-muted">Uploaded or selected media is attached when you save this content record.</span>
         </div>
       )}
     </>)}

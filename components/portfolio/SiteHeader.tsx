@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getPublicContent } from "@/lib/public-content";
@@ -17,13 +17,11 @@ export async function SiteHeader() {
   const logoUrl = safeExternalUrl(settings.logo_url);
 
   return <header className="site-header"><div className="container header-inner">
-    <Link href="/" className="brand" aria-label={`${name} portfolio home`}>
-      {logoUrl ? <Image unoptimized src={logoUrl} width={36} height={36} alt={`${name} logo`} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 8 }} /> : <span className="brand-mark">J</span>}
+    <Link href="/" className="brand">
+      {logoUrl ? <Image unoptimized src={logoUrl} width={36} height={36} alt={`${name} logo`} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 8 }} /> : <span className="brand-mark" aria-hidden="true">J</span>}
       <span>{name}</span>
     </Link>
-    <nav className="nav-links" aria-label="Main navigation">
-      <Link href="/about">About</Link><Link href="/projects">Projects</Link><Link href="/skills">Skills</Link><Link href="/experience">Experience</Link><Link href="/education">Education</Link>
-    </nav>
+    <nav className="nav-links" aria-label="Main navigation"><Link href="/about">About</Link><Link href="/projects">Projects</Link><Link href="/skills">Skills</Link><Link href="/experience">Experience</Link><Link href="/education">Education</Link><Link href="/achievements">Achievements</Link><Link href="/articles">Articles</Link></nav>
     <div className="nav-actions"><Link className="btn btn-outline" href="/contact">Contact</Link><Link className="btn btn-primary" href="/projects">Explore work <ArrowUpRight size={14}/></Link></div>
   </div></header>;
 }

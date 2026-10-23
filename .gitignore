@@ -22,3 +22,21 @@ jenifer-content-schema-report.txt
 repair-*.log
 .gitignore.backup-*
 .gitignore.before-git-setup.bak
+# Local test / audit artefacts
+playwright-report/
+coverage/
+.eslintcache
+artifacts/
+audit-reports/
+# Local test and audit artefacts
+playwright-report/
+coverage/
+.eslintcache
+artifacts/
+audit-reports/
+# Local test and audit artefacts
+playwright-report/
+coverage/
+.eslintcache
+artifacts/
+audit-reports/
